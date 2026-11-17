@@ -36,3 +36,12 @@ def test_every_code_cell_ran_without_error():
             continue
         assert cell.get("execution_count") is not None, "notebook was not executed"
         assert not any(o.get("output_type") == "error" for o in cell.get("outputs", []))
+
+
+def test_starter_uses_the_same_evaluation_code():
+    """The scratch-notebook starter must carry an exact copy of main notebook section 5.6."""
+    def shared_cell(path):
+        nb = nbformat.read(path, as_version=4)
+        return next(c.source for c in nb.cells if c.cell_type == "code" and c.source.startswith("def cv_folds"))
+
+    assert shared_cell(NOTEBOOK) == shared_cell(NOTEBOOK.parent / "notebooks" / "starter.ipynb")
