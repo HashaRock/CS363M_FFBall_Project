@@ -9,7 +9,7 @@ Phases after C can be split between people (see the dependency notes).
 
 **Dependencies:** A -> B -> D (C needs only B and can run alongside D). E, F, G each need D's saved features; F also needs E's predictions file and G needs E's model, so E publishes a baseline first. H needs E; I needs E-H; J is last.
 
-**Status:** A done. B done (outputs in `data/processed/`).
+**Status:** A, B, D done. Outputs are in `data/processed/` (`player_weeks`, `player_games`, `ecr_weekly`, `features`, `feature_families.json`). Use `cv_folds()` and `evaluate()` from notebook section 5.6 for every model so results are comparable. Next: C, E, F, G.
 
 ## Recency principle
 The most useful information for next week is the most recent: current role, current team, current health, recent form. Older games still help, mostly to steady noisy recent numbers. So every phase treats recency as something to **measure and tune**, not assume:
@@ -92,7 +92,7 @@ Seasons: 2019 for warm-up lags only, 2020-2024 for training and CV, 2025 for the
 Add anything else that looks interesting. Use training seasons only.
 **Produce:** plots and tables, each followed by a "What we see" note.
 
-## Phase D: Features
+## Phase D: Features (done)
 **Goal:** pre-game features that capture usage, recent production, luck (actual vs. expected points), game script, opponent strength, and the player's **current situation**.
 **Recency in the features:**
 - **Several time windows per stat:** last game, last 3, exponentially weighted average (half-life tuned, starting from what C found), and season to date. Let the model weigh them.
