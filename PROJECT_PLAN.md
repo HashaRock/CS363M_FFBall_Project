@@ -14,7 +14,7 @@ Phases after C can be split between people (see the dependency notes).
 ## Shared outputs and how to use them
 **Getting the data.** `data/` is not in git. From the repo root run `bash scripts/verify.sh` once (a few minutes the first time, it downloads and caches everything). Rerun it after pulling changes to earlier sections.
 
-**Where to work.** Copy `notebooks/starter.ipynb` to `notebooks/<phase>_<topic>.ipynb` (e.g. `E_regression.ipynb`). It loads the data and has the shared evaluation code. Don't edit `fantasy_football_rankings.ipynb`; finished sections get merged into it.
+**Where to work.** Copy `notebooks/starter.ipynb` to `notebooks/<phase>_<topic>.ipynb` (e.g. `E_regression.ipynb`). It loads the data and has the shared evaluation code. Finished cells move into your section of `fantasy_football_rankings.ipynb`. Follow "Avoiding conflicts" in `AGENTS.md`.
 
 **Files in `data/processed/`** (all keyed by `gsis_id, season, week` unless noted):
 

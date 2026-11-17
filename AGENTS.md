@@ -26,9 +26,18 @@ Instructor feedback we're answering: *"Which is your main problem, and which are
 
 ## Working on a phase
 - Read "Shared outputs and how to use them" in `PROJECT_PLAN.md` before writing code. It lists every saved file, which columns are safe as features, and the file each phase must save.
-- Work in your own scratch notebook copied from `notebooks/starter.ipynb`. Don't edit `fantasy_football_rankings.ipynb`; finished sections are merged into it.
-- Use the shared `cv_folds()`, `evaluate()`, and `cross_validate()` as they are. If they need to change, change them in the main notebook section 5.6 and the starter together (a test checks they match).
+- Start from a scratch notebook copied from `notebooks/starter.ipynb` (see "Avoiding conflicts").
+- Use the shared `cv_folds()`, `evaluate()`, and `cross_validate()` for every model so results are comparable.
 - `player_weeks.parquet` holds each game's own box score. Never use it as features; use `features.parquet` and `feature_families.json`.
+
+## Avoiding conflicts
+Anyone can change any file. Build in a temp spot first, then update the shared version (the single source of truth) in one focused step.
+- **Temp spots:** iterate in `notebooks/<phase>_<topic>.ipynb` and save work-in-progress files to `data/scratch/<phase>/`. Nothing reads from there except you.
+- **Promote when it works:** move final outputs to `data/processed/` under the names in `PROJECT_PLAN.md`, and move finished cells into your section of the main notebook.
+- **Before editing a shared file** (main notebook, starter, docs, config): pull first, change only what you need, then run `bash scripts/verify.sh`.
+- **Shared functions** (`cv_folds`, `evaluate`, `cross_validate`): change them in main notebook section 5.6 and the starter together. A test checks they match.
+- **New raw data:** cache it in `data/raw/` under a new file name instead of replacing an existing one.
+- **Keep diffs small:** don't reformat or reorder code you aren't changing.
 
 ## Commands
 ```bash
