@@ -24,6 +24,12 @@ Instructor feedback we're answering: *"Which is your main problem, and which are
 - **Writing style:** no emojis, no em dashes, and keep everything short and plain.
 - **Before saying a phase is done,** run its checks and report the results honestly.
 
+## Working on a phase
+- Read "Shared outputs and how to use them" in `PROJECT_PLAN.md` before writing code. It lists every saved file, which columns are safe as features, and the file each phase must save.
+- Work in your own scratch notebook copied from `notebooks/starter.ipynb`. Don't edit `fantasy_football_rankings.ipynb`; finished sections are merged into it.
+- Use the shared `cv_folds()`, `evaluate()`, and `cross_validate()` as they are. If they need to change, change them in the main notebook section 5.6 and the starter together (a test checks they match).
+- `player_weeks.parquet` holds each game's own box score. Never use it as features; use `features.parquet` and `feature_families.json`.
+
 ## Commands
 ```bash
 source .venv/bin/activate

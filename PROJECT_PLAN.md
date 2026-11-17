@@ -9,7 +9,39 @@ Phases after C can be split between people (see the dependency notes).
 
 **Dependencies:** A -> B -> D (C needs only B and can run alongside D). E, F, G each need D's saved features; F also needs E's predictions file and G needs E's model, so E publishes a baseline first. H needs E; I needs E-H; J is last.
 
-**Status:** A, B, D done. Outputs are in `data/processed/` (`player_weeks`, `player_games`, `ecr_weekly`, `features`, `feature_families.json`). Use `cv_folds()` and `evaluate()` from notebook section 5.6 for every model so results are comparable. Next: C, E, F, G.
+**Status:** A, B, D done. Next: C, E, F, G (see "Shared outputs" below for how to start).
+
+## Shared outputs and how to use them
+**Getting the data.** `data/` is not in git. From the repo root run `bash scripts/verify.sh` once (a few minutes the first time, it downloads and caches everything). Rerun it after pulling changes to earlier sections.
+
+**Where to work.** Copy `notebooks/starter.ipynb` to `notebooks/<phase>_<topic>.ipynb` (e.g. `E_regression.ipynb`). It loads the data and has the shared evaluation code. Don't edit `fantasy_football_rankings.ipynb`; finished sections get merged into it.
+
+**Files in `data/processed/`** (all keyed by `gsis_id, season, week` unless noted):
+
+| File | What it is | Use it for | Never |
+|---|---|---|---|
+| `features.parquet` | 22,145 player-weeks, 2020-2025: the 48 features, `fantasy_points_ppr` (target), `position`, `team`, `kickoff` | All modeling (E, F, G, H) | Use any column not listed in `feature_families.json` as an input |
+| `feature_families.json` | Feature names grouped into 7 families | Choosing inputs, family comparisons | |
+| `player_weeks.parquet` | The same rows with that week's full box score and context | Looking up names, explaining results | Use as features: it holds the game's own stats (leakage) |
+| `player_games.parquet` | Every game played 2019-2025, all players | Building new rolling features (always `shift(1)` within player first) | Use a row's own stats to predict that row |
+| `ecr_weekly.parquet` | Expert ranks: `ecr`, `ecr_pos_rank` (1 = best at the position), `snapshot_date`, `played_before_snapshot` | Comparing against experts (F, H, I) | Use as a feature |
+
+**Rules that apply to every phase:**
+- Tune and select only on `season` in 2020-2024. 2025 rows are touched once, in Phase H.
+- Use `cv_folds()`, `evaluate()`, and `cross_validate()` from the starter (copied exactly from main notebook section 5.6). They give expanding-window folds (validate 2022, 2023, 2024) and RMSE, MAE, weekly Spearman within position, and top-12 hit rate.
+- When comparing to ECR: inner-join on the key, drop `played_before_snapshot == True`, and rank within `season, week, position`. ECR only covers weeks with a snapshot (none in week 18, 2020 starts week 6, 2024 starts week 4).
+- Starting points from D: Ridge on all features gets RMSE 6.81, Spearman 0.515, top-12 hit rate 0.490. The recency half-life is 8 games. The luck family adds almost nothing.
+
+**Files each phase saves** (same keys, so they join to everything above):
+
+| Phase | File | Columns |
+|---|---|---|
+| E | `preds_regression.parquet` | key, `position`, `pred`, `model`. Out-of-fold predictions for 2022-2024. Publish a Ridge baseline first, then overwrite with the chosen model (same columns). |
+| E | `regression_choice.json` | chosen model name, hyperparameters, training window, sample-weight half-life, refit cadence |
+| F | `tier_results.parquet` | key, `position`, `tier_actual`, `tier_from_regression`, `tier_classifier`, `tier_ecr` |
+| G | `usage_clusters.parquet` | key, `cluster`, `switched_cluster` |
+| H | `preds_test.parquet` | key, `position`, `pred`, `ecr_pos_rank`, `trained_through` (last season and week in the training data) |
+
 
 ## Recency principle
 The most useful information for next week is the most recent: current role, current team, current health, recent form. Older games still help, mostly to steady noisy recent numbers. So every phase treats recency as something to **measure and tune**, not assume:
