@@ -42,3 +42,6 @@ Thumbs.db
 .idea/
 *.swp
 *~
+
+# Data (regenerate with the notebook)
+data/
