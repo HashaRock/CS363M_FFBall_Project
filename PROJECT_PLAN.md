@@ -5,11 +5,11 @@ Read `AGENTS.md` first.
 ## How to use this
 Work **one phase at a time**. Each phase gives a goal, what it must produce, and how to check it. The **how** is up to whoever takes the phase: look at the data, think through options, and pick the approach you can best explain. Before starting, briefly propose your approach to the team. When you finish, leave the outputs listed so the next phase can pick up from there.
 
-Phases after C can be split between people (see the dependency notes).
+Several phases can run at the same time (see the dependency notes).
 
-**Dependencies:** A -> B -> D (C needs only B and can run alongside D). E, F, G each need D's saved features; F also needs E's predictions file and G needs E's model, so E publishes a baseline first. H needs E; I needs E-H; J is last.
+**Dependencies:** C, E, F, G can all run in parallel now (E's baseline predictions are published). H needs E's final choice. I needs C-H. J is last. When E publishes its final model, F and G rerun the steps that read it.
 
-**Status:** A, B, D done. Next: C, E, F, G (see "Shared outputs" below for how to start).
+**Status:** A, B, D done. E baseline published. Open now: C, E, F, G. Then H, I, J.
 
 ## Shared outputs and how to use them
 **Getting the data.** `data/` is not in git. From the repo root run `bash scripts/verify.sh` once (a few minutes the first time, it downloads and caches everything). Rerun it after pulling changes to earlier sections.
@@ -36,8 +36,8 @@ Phases after C can be split between people (see the dependency notes).
 
 | Phase | File | Columns |
 |---|---|---|
-| E | `preds_regression.parquet` | key, `position`, `pred`, `model`. Out-of-fold predictions for 2022-2024. Publish a Ridge baseline first, then overwrite with the chosen model (same columns). |
-| E | `regression_choice.json` | chosen model name, hyperparameters, training window, sample-weight half-life, refit cadence |
+| E | `preds_regression.parquet` | key, `position`, `pred`, `model`. Out-of-fold predictions for 2022-2024. Written by the last cell of main notebook section 6. Now holds the Ridge baseline. |
+| E | `regression_choice.json` | `status` (`baseline` or `final`), `model`, `params`, `features`, `training_window`, `sample_weight_half_life_seasons`, `refit` |
 | F | `tier_results.parquet` | key, `position`, `tier_actual`, `tier_from_regression`, `tier_classifier`, `tier_ecr` |
 | G | `usage_clusters.parquet` | key, `cluster`, `switched_cluster` |
 | H | `preds_test.parquet` | key, `position`, `pred`, `ecr_pos_rank`, `trained_through` (last season and week in the training data) |
@@ -74,135 +74,95 @@ All public, loaded with `nflreadpy`:
 - expected fantasy points (ffopportunity)
 - FantasyPros ECR archive (used only to compare against)
 - player ID crosswalk
-- optional: injury reports (pre-game practice and game status), depth charts, play-by-play
+- injury reports (pre-game status), used for situation features
+- not used: depth charts (no 2025 data), play-by-play
 
 Seasons: 2019 for warm-up lags only, 2020-2024 for training and CV, 2025 for the test.
 
 ---
 
 ## Phase A: Setup (done)
-**Goal:** a working environment and an empty notebook skeleton.
-**Produce:**
-- `.venv`
-- `requirements.txt`
-- `fantasy_football_rankings.ipynb` with the section headings
-- `scripts/verify.sh`
-- `data/` added to `.gitignore`
-
-**Check:** the notebook runs top to bottom from a fresh kernel.
+`.venv`, pinned `requirements.txt`, the notebook skeleton, `scripts/verify.sh`, `data/` gitignored, and `notebooks/starter.ipynb` for phase work.
 
 ## Phase B: Load and clean (done)
-**Goal:** one clean table with one row per player per week, all sources joined.
-**Things to handle:**
-- mismatched team codes and player IDs
-- matching each ECR snapshot to the right week
-- games that kicked off before the experts' snapshot (e.g. Thursday games)
-- byes and players who barely played
-- picking which players to model each week without using that week's results
-- an anomaly-detection pass to separate data errors from real big games
+Notebook section 3. One row per pool player per week, 2020-2025 (22,145 rows).
+- IDs mapped to `gsis_id`, team codes fixed, ECR snapshots matched to weeks, Thursday games flagged (`played_before_snapshot`).
+- Pool: at least 40% offensive snap share over the last 3 games before the week. Inactive players dropped.
+- Anomaly pass: 12 data errors dropped, 470 Isolation Forest outliers kept as real games.
+- Outputs: `player_weeks`, `player_games`, `ecr_weekly` (see "Shared outputs").
 
-**Produce:**
-- `data/processed/player_weeks.parquet`: the modeling table (pool players, 2020-2025), with `kickoff` so later phases can cut data by date
-- `data/processed/player_games.parquet`: every game played 2019-2025, the history for all lags
-- `data/processed/ecr_weekly.parquet`: ECR, kept separate from the modeling table
-- a short table showing rows kept at each step
-- join rates
-
-**Check:** no duplicate keys, no missing targets, high join rates.
-
-## Phase C: Explore
-**Goal:** learn what drives fantasy points before modeling, including how quickly old information goes stale.
-**Should cover:**
+## Phase C: Explore (open)
+**Goal:** learn what drives fantasy points before modeling. Training seasons only. Notebook section 4.
+**Cover:**
 - point distributions by position
-- how stable usage is week to week
-- **how predictive past games are by how long ago they were:** correlation of this week's points with each of the last 1-8 games, and with last season's average. This sets the starting range for the recency weights in D.
-- **early vs. late season:** how much harder weeks 1-4 are to predict, when the only history is last season
-- **drift across seasons:** do scoring levels or usage patterns shift from 2020 to 2024? This tells E whether older seasons should count less.
+- week-to-week stability of usage
+- how fast past games lose predictive value (correlation with each of the last 1-8 games and last season). D found the best half-life is 8 games; C shows why.
+- early season (weeks 1-4) vs. later
+- drift across seasons 2020-2024 (do older seasons look different?)
 - Vegas lines vs. production
-- how accurate the experts have been historically (this is the bar to beat)
+- how accurate the experts have been (the bar to beat)
 
-Add anything else that looks interesting. Use training seasons only.
-**Produce:** plots and tables, each followed by a "What we see" note.
+**Produce:** plots and tables, each with a "What we see" note.
 
 ## Phase D: Features (done)
-**Goal:** pre-game features that capture usage, recent production, luck (actual vs. expected points), game script, opponent strength, and the player's **current situation**.
-**Recency in the features:**
-- **Several time windows per stat:** last game, last 3, exponentially weighted average (half-life tuned, starting from what C found), and season to date. Let the model weigh them.
-- **Carry-over across seasons:** early-season weeks fall back on last season, shrunk toward the position average, and the weight on last season fades as this season's games pile up.
-- **Situation changes:** changed team since the last game, a new starting QB on the team, a teammate at the same position out (opportunity freed up), games since a role change, back from injury.
-- **Current status (optional sources):** the pre-game injury report status and depth chart rank for that week. Both are public before kickoff.
+Notebook section 5. 48 features in 7 families, saved to `features.parquet` and `feature_families.json`.
+- Windows per stat: last game, last 3, recency-weighted (half-life 8 games, beat equal weighting in CV), season to date.
+- Situation family from the pre-game injury report: changed team, weeks since last game, questionable, starting QB out, vacated target and carry share.
+- Shared `cv_folds()`, `evaluate()`, `cross_validate()` in section 5.6.
+- Family comparison: Ridge on all features gets RMSE 6.81, Spearman 0.515. Usage, situation, and game script add the most; luck adds almost nothing.
+- Leakage test, ECR check, and a McCaffrey spot check (trade and return from IR) all pass.
 
-**Produce:**
-- the feature set, grouped into families (include a "recency and situation" family)
-- a test showing features only use past weeks
-- a comparison showing what each feature family adds, including recency-weighted vs. plain averages
+## Phase E: Points regression (main task, open)
+**Goal:** find the best model for weekly points. Notebook section 6.
+**Already done:** the last cell of section 6 publishes the Ridge baseline to `preds_regression.parquet` and `regression_choice.json`.
+**Cover:**
+- simple baselines as the bar: last week's points, last-3 average (numbers already in section 5.8)
+- a range of course models, each tuned with `cv_folds()`
+- how much the past counts, tuned by CV: training window (all seasons vs. last k) and sample weights that fade with a game's age
+- refit cadence for the top 2-3 models: refit weekly through the validation season vs. once before it
+- where models overfit (train vs. validation error as complexity grows)
+- error by position and by week of season
 
-**Check:** no ECR columns in the features; a spot-check of one player's lags, including one who changed teams mid-season.
+**Produce:** a model comparison table. Then publish the winner by editing `REGRESSION_CHOICE` and `make_regression_model()` in the last cell (set `status` to `final`).
 
-*After Phase D, phases E, F, and G can run in parallel.*
+## Phase F: Tiers (extension, open)
+**Goal:** answer the instructor's question: does a direct tier classifier beat tiers cut from our predicted points? Notebook section 7.
+**Compare three ways of tiering each position-week:**
+- cut from `preds_regression.parquet` ranks (rerun when E goes final)
+- a direct classifier on the same features
+- cut from ECR ranks (`ecr_weekly.parquet`, rules in "Shared outputs")
 
-## Phase E: Points regression (main task)
-**Goal:** find the best model for weekly points, starting from simple baselines like "last week's points" and "average of the last 3 games".
-**Requirements:**
-- compare a range of course models
-- tune them with CV that respects time order: expanding-window folds by season (train 2020-2022, validate 2023; train 2020-2023, validate 2024)
-- **tune how much the past counts:** treat these as hyperparameters chosen by CV:
-  - training window (all seasons vs. the last k seasons)
-  - sample weights that decay with a game's age (half-life in seasons), passed as `sample_weight`
-- **check the refit cadence:** for the top 2-3 models, rerun the validation season walk-forward (refit each week on all games before it) and compare to fitting once before the season. Pick the cadence for H.
-- show where models overfit
+Handle class imbalance and use classifier metrics (per-class precision and recall, macro F1, confusion matrix).
+**Produce:** `tier_results.parquet`, a comparison table, and a one-paragraph answer.
 
-Evaluate on point error (RMSE, MAE) and on ranking quality: rank correlation per week and how many of our top 12 actually finished top 12. Also report error by week of season, to see whether recency features close the early-season gap.
-**Produce:** a model comparison table, the chosen model with its recency settings, and `data/processed/preds_regression.parquet` (baseline first, final later, same columns).
-
-## Phase F: Tiers (extension)
-**Goal:** answer the instructor's question. Compare three ways of assigning tiers:
-- cut tiers from the regression's predicted ranks
-- a direct tier classifier (same features and recency settings as E)
-- tiers cut from the expert rankings
-
-Handle the class imbalance and use proper classifier metrics.
-**Produce:** a comparison and a clear one-paragraph answer.
-
-## Phase G: Usage clustering (extension)
-**Goal:** group players into usage profiles that reflect their **current** role.
-**Requirements:**
-- cluster on recent usage (for example the last 4 games) rather than a full season, so a player can move between profiles as their role changes
+## Phase G: Usage clustering (extension, open)
+**Goal:** group players into usage profiles that reflect their current role. Notebook section 8.
+**Cover:**
+- cluster on recent usage features (the `usage` family, e.g. `*_last3`, `*_recent`), so players can move between profiles
 - compare a few clustering methods with validation metrics
-- describe the clusters in plain terms, and how often players switch clusters during a season
-- test whether the cluster labels (and a "switched cluster" flag) improve the regression
+- describe the clusters in plain terms, and how often players switch
+- with vs. without cluster labels (and a switched flag) in the regression, using `make_regression_model()` (rerun when E goes final)
 
-**Produce:** a cluster comparison, cluster descriptions, and the with/without result.
+**Produce:** `usage_clusters.parquet`, a cluster comparison, cluster descriptions, and the with/without result.
 
-## Phase H: Final test vs. experts
-**Goal:** predict 2025 once, with every setting frozen from CV. Use the refit cadence chosen in E: the model for 2025 week t is trained on 2020-2024 plus 2025 weeks before t. This is not leakage, since those games are over before week t, and the experts have the same information. Compare to ECR on the same players and weeks:
-- overall, by position, and week by week
-- early season (weeks 1-4) vs. the rest
-- players whose situation changed recently (new team, new role) vs. everyone else
+## Phase H: Final test vs. experts (after E is final)
+**Goal:** predict 2025 once with every setting frozen. Notebook section 9.
+- Rebuild the model from `regression_choice.json` and `make_regression_model()`.
+- Use E's refit cadence: the model for 2025 week t trains on 2020-2024 plus 2025 weeks before t (walk-forward, not leakage).
+- Compare to ECR on the same players and weeks: overall, by position, week by week, weeks 1-4 vs. the rest, and recently changed situations vs. everyone else.
 
-**Produce:** final metrics and plots, with a plain verdict (beat, tie, or lose to the experts).
+**Produce:** `preds_test.parquet`, final metrics and plots, and a plain verdict (beat, tie, or lose to the experts).
 
-## Phase I: Analysis and wrap-up
-**Goal:** explain the results.
-**Should cover:**
-- what drives predictions, and how much weight lands on recent vs. older games
-- where we and the experts miss, and who was right when we disagreed
-- conclusions
-- the "What we tried and didn't keep" table (including any recency setting that did not help)
-- a short note on societal impacts
+## Phase I: Analysis and wrap-up (last)
+**Goal:** explain the results. Notebook section 10.
+**Cover:** what drives predictions (including recent vs. older games), where we and the experts miss and who was right when we disagreed, conclusions, the "What we tried and didn't keep" table, and a short societal-impact note.
+**Also produce:** writeup notes (bullets and numbers) and likely Q&A questions with answers.
 
-**Also produce:** writeup notes (bullets and numbers for the team to write from) and likely Q&A questions with answers.
-
-## Phase J: Verify
+## Phase J: Verify (last)
 **Goal:** prove it works and meets the rubric.
-**Requirements:**
-- `scripts/verify.sh` runs the notebook fresh and runs tests anyone can rerun
-- the tests independently recheck:
-  - no leakage: every feature for week t uses earlier games only
-  - in the walk-forward test, each week's model was trained only on games that kicked off before that week
-  - no 2025 game was used to choose models or settings
-  - the reported metrics match the saved predictions
-- a short `RUBRIC_AUDIT.md` maps each rubric item to its evidence, marked DONE, PARTIAL, or MISSING
-- reread the notebook as a strict grader would, then fix what's unclear
+- `scripts/verify.sh` passes from a fresh kernel. Existing tests already cover the notebook structure, clean data, feature leakage, and the regression outputs.
+- Add tests for: the walk-forward test (each week trained only on earlier games), no 2025 game used to choose settings, and reported metrics matching the saved predictions.
+- Write `RUBRIC_AUDIT.md` mapping each rubric item to its evidence (DONE, PARTIAL, MISSING).
+- Reread the notebook as a strict grader and fix what's unclear.
 
 **Check:** verify passes, and nothing is committed.
