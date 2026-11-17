@@ -7,9 +7,9 @@ Work **one phase at a time**. Each phase gives a goal, what it must produce, and
 
 Several phases can run at the same time (see the dependency notes).
 
-**Dependencies:** C, E, F, G can all run in parallel now (E's baseline predictions are published). H needs E's final choice. I needs C-H. J is last. When E publishes its final model, F and G rerun the steps that read it.
+**Dependencies:** C, F, G can run in parallel. E's final model is published, so F and G should rerun the steps that read it. I needs C-H. J is last.
 
-**Status:** A, B, D done. E baseline published. Open now: C, E, F, G. Then H, I, J.
+**Status:** A, B, D, E, H done. Open now: C, F, G. Then I, J. E is frozen: 2025 has been tested, so nothing in sections 3-6 may change in a way that alters the model or its predictions.
 
 ## Shared outputs and how to use them
 **Getting the data.** `data/` is not in git. From the repo root run `bash scripts/verify.sh` once (a few minutes the first time, it downloads and caches everything). Rerun it after pulling changes to earlier sections.
@@ -31,16 +31,17 @@ Several phases can run at the same time (see the dependency notes).
 - Use `cv_folds()`, `evaluate()`, and `cross_validate()` from the starter (copied exactly from main notebook section 5.6). They give expanding-window folds (validate 2022, 2023, 2024) and RMSE, MAE, weekly Spearman within position, and top-12 hit rate.
 - When comparing to ECR: inner-join on the key, drop `played_before_snapshot == True`, and rank within `season, week, position`. ECR only covers weeks with a snapshot (none in week 18, 2020 starts week 6, 2024 starts week 4).
 - Starting points from D: Ridge on all features gets RMSE 6.81, Spearman 0.515, top-12 hit rate 0.490. The recency half-life is 8 games. The luck family adds almost nothing.
+- Final model from E: voting ensemble (Lasso + gradient boosting + MLP), CV RMSE 6.77, Spearman 0.525, top-12 hit rate 0.489.
 
 **Files each phase saves** (same keys, so they join to everything above):
 
 | Phase | File | Columns |
 |---|---|---|
-| E | `preds_regression.parquet` | key, `position`, `pred`, `model`. Out-of-fold predictions for 2022-2024. Written by the last cell of main notebook section 6. Now holds the Ridge baseline. |
+| E | `preds_regression.parquet` | key, `position`, `pred`, `model`. Out-of-fold predictions for 2022-2024. Written by the last cell of main notebook section 6. Holds the final model (voting ensemble, refit every week). |
 | E | `regression_choice.json` | `status` (`baseline` or `final`), `model`, `params`, `features`, `training_window`, `sample_weight_half_life_seasons`, `refit` |
 | F | `tier_results.parquet` | key, `position`, `tier_actual`, `tier_from_regression`, `tier_classifier`, `tier_ecr` |
 | G | `usage_clusters.parquet` | key, `cluster`, `switched_cluster` |
-| H | `preds_test.parquet` | key, `position`, `pred`, `ecr_pos_rank`, `trained_through` (last season and week in the training data) |
+| H | `preds_test.parquet` | key, `position`, `pred`, `ecr_pos_rank`, `trained_through` (last season and week in the training data, e.g. `2025-W03`). `ecr_pos_rank` is filled only where the expert rank was made before kickoff. |
 
 
 ## Recency principle
@@ -112,7 +113,7 @@ Notebook section 5. 48 features in 7 families, saved to `features.parquet` and `
 - Family comparison: Ridge on all features gets RMSE 6.81, Spearman 0.515. Usage, situation, and game script add the most; luck adds almost nothing.
 - Leakage test, ECR check, and a McCaffrey spot check (trade and return from IR) all pass.
 
-## Phase E: Points regression (main task, open)
+## Phase E: Points regression (main task, done)
 **Goal:** find the best model for weekly points. Notebook section 6.
 **Already done:** the last cell of section 6 publishes the Ridge baseline to `preds_regression.parquet` and `regression_choice.json`.
 **Cover:**
@@ -124,6 +125,8 @@ Notebook section 5. 48 features in 7 families, saved to `features.parquet` and `
 - error by position and by week of season
 
 **Produce:** a model comparison table. Then publish the winner by editing `REGRESSION_CHOICE` and `make_regression_model()` in the last cell (set `status` to `final`).
+
+**Result:** voting ensemble of Lasso, gradient boosting, and an MLP, each tuned in 6.2. All seasons, equal weights, refit every week. CV RMSE 6.77, Spearman 0.525 (Ridge baseline: 6.81, 0.515). Short windows, age weights, stacking, and per-position models did not help. Scratch work is in `notebooks/E_regression.ipynb`.
 
 ## Phase F: Tiers (extension, open)
 **Goal:** answer the instructor's question: does a direct tier classifier beat tiers cut from our predicted points? Notebook section 7.
@@ -145,13 +148,15 @@ Handle class imbalance and use classifier metrics (per-class precision and recal
 
 **Produce:** `usage_clusters.parquet`, a cluster comparison, cluster descriptions, and the with/without result.
 
-## Phase H: Final test vs. experts (after E is final)
+## Phase H: Final test vs. experts (done)
 **Goal:** predict 2025 once with every setting frozen. Notebook section 9.
 - Rebuild the model from `regression_choice.json` and `make_regression_model()`.
 - Use E's refit cadence: the model for 2025 week t trains on 2020-2024 plus 2025 weeks before t (walk-forward, not leakage).
 - Compare to ECR on the same players and weeks: overall, by position, week by week, weeks 1-4 vs. the rest, and recently changed situations vs. everyone else.
 
 **Produce:** `preds_test.parquet`, final metrics and plots, and a plain verdict (beat, tie, or lose to the experts).
+
+**Result:** we lose to the experts on rank correlation (weekly Spearman 0.489 vs. 0.512 on 3,025 player-weeks, 95% interval for the gap -0.039 to -0.008) and are slightly ahead on top-12 hit rate (0.526 vs. 0.514). 2025 RMSE 6.83 vs. 6.77 in CV. Checked by `tests/test_final_test_outputs.py`.
 
 ## Phase I: Analysis and wrap-up (last)
 **Goal:** explain the results. Notebook section 10.
