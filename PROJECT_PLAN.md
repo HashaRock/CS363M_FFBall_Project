@@ -7,9 +7,9 @@ Work **one phase at a time**. Each phase gives a goal, what it must produce, and
 
 Several phases can run at the same time (see the dependency notes).
 
-**Dependencies:** I needs C-H, which are all done, so I can start now. J is last.
+**Dependencies:** none left.
 
-**Status:** A through H done. Next: I, then J. E is frozen: 2025 has been tested, so nothing in sections 3-6 may change in a way that alters the model or its predictions.
+**Status:** A through J done. Left for the team: the process writeup (see `RUBRIC_AUDIT.md`). E is frozen: 2025 has been tested, so nothing in sections 3-6 may change in a way that alters the model or its predictions.
 
 ## Shared outputs and how to use them
 **Getting the data.** `data/` is not in git. From the repo root run `bash scripts/verify.sh` once (a few minutes the first time, it downloads and caches everything). Rerun it after pulling changes to earlier sections.
@@ -165,12 +165,14 @@ Handle class imbalance and use classifier metrics (per-class precision and recal
 
 **Result:** we lose to the experts on rank correlation (weekly Spearman 0.489 vs. 0.512 on 3,025 player-weeks, 95% interval for the gap -0.039 to -0.008) and are slightly ahead on top-12 hit rate (0.526 vs. 0.514). 2025 RMSE 6.83 vs. 6.77 in CV. Checked by `tests/test_final_test_outputs.py`.
 
-## Phase I: Analysis and wrap-up (last)
+## Phase I: Analysis and wrap-up (done)
 **Goal:** explain the results. Notebook section 10.
 **Cover:** what drives predictions (including recent vs. older games), where we and the experts miss and who was right when we disagreed, conclusions, the "What we tried and didn't keep" table, and a short societal-impact note.
 **Also produce:** writeup notes (bullets and numbers) and likely Q&A questions with answers.
 
-## Phase J: Verify (last)
+**Result:** section 10 covers what drives predictions (recent production, then usage; recency-weighted averages matter most), who was right when we disagreed with ECR (close to a coin flip), conclusions, the didn't-keep table, and societal impact. Writeup notes and Q&A prep are in `WRITEUP_NOTES.md`.
+
+## Phase J: Verify (done)
 **Goal:** prove it works and meets the rubric.
 - `scripts/verify.sh` passes from a fresh kernel. Existing tests already cover the notebook structure, clean data, feature leakage, the regression outputs, and the tier outputs.
 - Add tests for: the walk-forward test (each week trained only on earlier games), no 2025 game used to choose settings, and reported metrics matching the saved predictions.
@@ -178,3 +180,5 @@ Handle class imbalance and use classifier metrics (per-class precision and recal
 - Reread the notebook as a strict grader and fix what's unclear.
 
 **Check:** verify passes, and nothing is committed.
+
+**Result:** added `tests/test_test_season_untouched.py` and `tests/test_reported_metrics.py`, wrote `RUBRIC_AUDIT.md`, and fixed what the strict reread found (listed in the audit).
