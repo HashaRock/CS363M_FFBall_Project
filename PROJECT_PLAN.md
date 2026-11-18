@@ -7,9 +7,9 @@ Work **one phase at a time**. Each phase gives a goal, what it must produce, and
 
 Several phases can run at the same time (see the dependency notes).
 
-**Dependencies:** C, F, G can run in parallel. E's final model is published, so F and G should rerun the steps that read it. I needs C-H. J is last.
+**Dependencies:** I needs C-H, which are all done, so I can start now. J is last.
 
-**Status:** A, B, D, E, F, H done. Open now: C, G. Then I, J. E is frozen: 2025 has been tested, so nothing in sections 3-6 may change in a way that alters the model or its predictions.
+**Status:** A through H done. Next: I, then J. E is frozen: 2025 has been tested, so nothing in sections 3-6 may change in a way that alters the model or its predictions.
 
 ## Shared outputs and how to use them
 **Getting the data.** `data/` is not in git. From the repo root run `bash scripts/verify.sh` once (a few minutes the first time, it downloads and caches everything). Rerun it after pulling changes to earlier sections.
@@ -93,7 +93,7 @@ Notebook section 3. One row per pool player per week, 2020-2025 (22,145 rows).
 - Anomaly pass: 12 data errors dropped, 470 Isolation Forest outliers kept as real games.
 - Outputs: `player_weeks`, `player_games`, `ecr_weekly` (see "Shared outputs").
 
-## Phase C: Explore (open)
+## Phase C: Explore (done)
 **Goal:** learn what drives fantasy points before modeling. Training seasons only. Notebook section 4.
 **Cover:**
 - point distributions by position
@@ -105,6 +105,8 @@ Notebook section 3. One row per pool player per week, 2020-2025 (22,145 rows).
 - how accurate the experts have been (the bar to beat)
 
 **Produce:** plots and tables, each with a "What we see" note.
+
+**Result:** notebook sections 4.1-4.5 on 18,402 training player-weeks. Mean points run from 6.46 (TE) to 15.18 (QB). Last-game point correlation is 0.30 to 0.36 by position, and it falls off over the last 8 games and the prior season. Early weeks differ from later ones by -0.77 to +0.62 points. Implied team points correlate 0.10 to 0.31 with points (highest for QB). On 13,839 matched training player-weeks, the experts' weekly Spearman is 0.509 and their top-12 hit rate is 0.519. Scratch work is in `notebooks/C_explore.ipynb`.
 
 ## Phase D: Features (done)
 Notebook section 5. 48 features in 7 families, saved to `features.parquet` and `feature_families.json`.
@@ -141,7 +143,7 @@ Handle class imbalance and use classifier metrics (per-class precision and recal
 
 **Result:** the regression cut beats a direct classifier. Macro F1 is scored within each position-week: 0.495 for the regression cut vs. 0.454 for the classifier (gradient boosting with balanced class weights, refit weekly). The gap is +0.040 (95% interval +0.031 to +0.049), and the regression is ahead in 47 of 54 weeks. Ranking the classifier's probabilities and cutting them the same way gives 0.491, so both carry the same information. ECR tiers score 0.508 vs. our 0.499 on matched rows. Checked by `tests/test_tiers.py`. Scratch work is in `notebooks/F_tiers.ipynb`.
 
-## Phase G: Usage clustering (extension, open)
+## Phase G: Usage clustering (extension, done)
 **Goal:** group players into usage profiles that reflect their current role. Notebook section 8.
 **Cover:**
 - cluster on recent usage features (the `usage` family, e.g. `*_last3`, `*_recent`), so players can move between profiles
@@ -150,6 +152,8 @@ Handle class imbalance and use classifier metrics (per-class precision and recal
 - with vs. without cluster labels (and a switched flag) in the regression, using `make_regression_model()` (rerun when E goes final)
 
 **Produce:** `usage_clusters.parquet`, a cluster comparison, cluster descriptions, and the with/without result.
+
+**Result:** K-Means, Ward, and DBSCAN were compared on a 2020-2021 sample. K-Means with k=4 is chosen (silhouette 0.480). The four profiles are passers, high-volume receivers, rushing backs, and low-volume receivers, and players switch profile on 5.7% of week-to-week transitions. Adding the profiles and a switch flag to the frozen regression is a tie (weekly-refit CV Spearman 0.5254 vs. 0.5251, RMSE 6.766 both), so they stay descriptive and are not added to the model. Checked by `tests/test_usage_clusters.py`. Scratch work is in `notebooks/G_usage.ipynb`.
 
 ## Phase H: Final test vs. experts (done)
 **Goal:** predict 2025 once with every setting frozen. Notebook section 9.
