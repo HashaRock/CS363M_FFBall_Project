@@ -9,7 +9,7 @@ Several phases can run at the same time (see the dependency notes).
 
 **Dependencies:** C, F, G can run in parallel. E's final model is published, so F and G should rerun the steps that read it. I needs C-H. J is last.
 
-**Status:** A, B, D, E, H done. Open now: C, F, G. Then I, J. E is frozen: 2025 has been tested, so nothing in sections 3-6 may change in a way that alters the model or its predictions.
+**Status:** A, B, D, E, F, H done. Open now: C, G. Then I, J. E is frozen: 2025 has been tested, so nothing in sections 3-6 may change in a way that alters the model or its predictions.
 
 ## Shared outputs and how to use them
 **Getting the data.** `data/` is not in git. From the repo root run `bash scripts/verify.sh` once (a few minutes the first time, it downloads and caches everything). Rerun it after pulling changes to earlier sections.
@@ -39,7 +39,8 @@ Several phases can run at the same time (see the dependency notes).
 |---|---|---|
 | E | `preds_regression.parquet` | key, `position`, `pred`, `model`. Out-of-fold predictions for 2022-2024. Written by the last cell of main notebook section 6. Holds the final model (voting ensemble, refit every week). |
 | E | `regression_choice.json` | `status` (`baseline` or `final`), `model`, `params`, `features`, `training_window`, `sample_weight_half_life_seasons`, `refit` |
-| F | `tier_results.parquet` | key, `position`, `tier_actual`, `tier_from_regression`, `tier_classifier`, `tier_ecr` |
+| F | `tier_results.parquet` | key, `position`, `tier_actual`, `tier_from_regression`, `tier_classifier`, `tier_ecr`. Tiers 1-3 = position rank 1-12, 13-24, 25+ for 2022-2024. `tier_ecr` is filled only where a usable expert rank exists, and is cut within those rows. |
+| F | `tier_choice.json` | classifier `model`, `params`, `class_weight`, `refit`, `tier_cuts`, and the section 7.3 `macro_f1` scores |
 | G | `usage_clusters.parquet` | key, `cluster`, `switched_cluster` |
 | H | `preds_test.parquet` | key, `position`, `pred`, `ecr_pos_rank`, `trained_through` (last season and week in the training data, e.g. `2025-W03`). `ecr_pos_rank` is filled only where the expert rank was made before kickoff. |
 
@@ -128,7 +129,7 @@ Notebook section 5. 48 features in 7 families, saved to `features.parquet` and `
 
 **Result:** voting ensemble of Lasso, gradient boosting, and an MLP, each tuned in 6.2. All seasons, equal weights, refit every week. CV RMSE 6.77, Spearman 0.525 (Ridge baseline: 6.81, 0.515). Short windows, age weights, stacking, and per-position models did not help. Scratch work is in `notebooks/E_regression.ipynb`.
 
-## Phase F: Tiers (extension, open)
+## Phase F: Tiers (extension, done)
 **Goal:** answer the instructor's question: does a direct tier classifier beat tiers cut from our predicted points? Notebook section 7.
 **Compare three ways of tiering each position-week:**
 - cut from `preds_regression.parquet` ranks (rerun when E goes final)
@@ -137,6 +138,8 @@ Notebook section 5. 48 features in 7 families, saved to `features.parquet` and `
 
 Handle class imbalance and use classifier metrics (per-class precision and recall, macro F1, confusion matrix).
 **Produce:** `tier_results.parquet`, a comparison table, and a one-paragraph answer.
+
+**Result:** the regression cut beats a direct classifier. Macro F1 is scored within each position-week: 0.495 for the regression cut vs. 0.454 for the classifier (gradient boosting with balanced class weights, refit weekly). The gap is +0.040 (95% interval +0.031 to +0.049), and the regression is ahead in 47 of 54 weeks. Ranking the classifier's probabilities and cutting them the same way gives 0.491, so both carry the same information. ECR tiers score 0.508 vs. our 0.499 on matched rows. Checked by `tests/test_tiers.py`. Scratch work is in `notebooks/F_tiers.ipynb`.
 
 ## Phase G: Usage clustering (extension, open)
 **Goal:** group players into usage profiles that reflect their current role. Notebook section 8.
@@ -165,7 +168,7 @@ Handle class imbalance and use classifier metrics (per-class precision and recal
 
 ## Phase J: Verify (last)
 **Goal:** prove it works and meets the rubric.
-- `scripts/verify.sh` passes from a fresh kernel. Existing tests already cover the notebook structure, clean data, feature leakage, and the regression outputs.
+- `scripts/verify.sh` passes from a fresh kernel. Existing tests already cover the notebook structure, clean data, feature leakage, the regression outputs, and the tier outputs.
 - Add tests for: the walk-forward test (each week trained only on earlier games), no 2025 game used to choose settings, and reported metrics matching the saved predictions.
 - Write `RUBRIC_AUDIT.md` mapping each rubric item to its evidence (DONE, PARTIAL, MISSING).
 - Reread the notebook as a strict grader and fix what's unclear.
