@@ -52,7 +52,6 @@ Each rubric item from `Project_Expectations.pdf`, with where the evidence is and
   - `tests/test_reported_metrics.py`: the headline numbers in the text match the saved predictions (CV scores, 2025 scores, the head-to-head with the experts, the weekly gap, the disagreement shares). Changing one number in the text makes it fail.
   - The walk-forward test (each 2025 week trained only on earlier games) already existed in `tests/test_final_test_outputs.py`.
 - **Where a grader could push:**
-  - Sections 4 and 8 use a terser style than the rest (prefixed names like `c_rows` and `g_rows`, single quotes, packed lines), and their notes are generated inside code cells. They read fine but look different. Not reformatted, to keep the diff small the day before the deadline.
   - The writeup is part of this item, and it is not written yet.
 
 ## Outcome and results (10): DONE
@@ -67,6 +66,7 @@ Each rubric item from `Project_Expectations.pdf`, with where the evidence is and
 - 3.1 and 3.3 printed results with no note; each now has a "What we see".
 - 8.3's generated note called a +0.0003 Spearman change a gain; it now calls it noise, which matches the text below it.
 - 9.5 gave one pair of numbers in the experts-first order; now it is ours first, like the rest.
+- Sections 4 and 8 used a terser style than the rest (prefixed names, packed lines, notes generated inside code cells). They now match: plain names, small functions, clustering settings in the config cell, and written "What we see" notes. No saved output changed.
 
 ## Left for the team
 1. Write the process writeup (max 5 pages, PDF) with the work split at the end. `WRITEUP_NOTES.md` has the bullets and numbers.

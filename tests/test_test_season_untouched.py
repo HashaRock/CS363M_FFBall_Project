@@ -24,7 +24,7 @@ TRAIN_SEASONS = set(range(2020, 2025))
 TEST_SEASON = 2025
 
 # Tables a direct .fit() in sections 4-8 may use. Each is built from training seasons only (checked below).
-TRAINING_TABLES = ("data.loc[train", "rows[", "fit_rows[", "train_features", "g_initial[", "X[")
+TRAINING_TABLES = ("data.loc[train", "rows[", "fit_rows[", "train_features", "usage_initial[", "X[")
 
 
 @pytest.fixture(scope="module")
@@ -80,8 +80,8 @@ def test_training_tables_are_built_from_training_seasons(cells):
     assert 'return table[table["season"].isin(TRAIN_SEASONS)]' in source  # train_rows()
     assert "train_features = train_rows(features)" in source
     assert "tier_rows = train_features." in source
-    assert "g_rows = features[features.season.isin(TRAIN_SEASONS)]" in source
-    assert "g_initial = g_rows[" in source
+    assert 'usage_rows = features[features["season"].isin(TRAIN_SEASONS)]' in source
+    assert "usage_initial = usage_rows[" in source
 
 
 @pytest.mark.parametrize("name", ["preds_regression", "tier_results", "usage_clusters", "usage_cluster_cv_predictions"])

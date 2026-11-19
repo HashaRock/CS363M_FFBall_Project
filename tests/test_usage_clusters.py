@@ -30,8 +30,8 @@ def profile_class():
 def test_transform_does_not_refit_or_use_targets():
     cls = profile_class()
     x = pd.DataFrame({'usage': [0., .1, .2, 9., 9.1, 9.2],
-                      'g_previous_usage': [0., 0., .1, .2, 9., 9.1],
-                      'g_has_previous': [0, 1, 1, 1, 1, 1]})
+                      'previous_usage': [0., 0., .1, .2, 9., 9.1],
+                      'has_previous': [0, 1, 1, 1, 1, 1]})
     fitted = cls(['usage'], ['usage'], 2, 363).fit(x, np.arange(6))
     other = cls(['usage'], ['usage'], 2, 363).fit(x, np.arange(6)[::-1])
     np.testing.assert_array_equal(fitted.transform(x), other.transform(x))
